@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Read JSON input from stdin (Claude Code passes context info)
+STDIN_INPUT=$(cat)
+
 FIVE_HOUR_WINDOW_SECONDS=18000
 CACHE_FILE="/tmp/claude-usage-cache.json"
 CACHE_TIME_TO_LIVE_SECONDS=60
@@ -199,9 +202,40 @@ render_error() {
   fi
 }
 
+extract_context_data() {
+  local input="$1"
+  [[ -z "$input" ]] && return 1
+
+  jq -r '
+    if .context_window.current_usage != null and .context_window.context_window_size != null then
+      [
+        (.context_window.current_usage.input_tokens +
+         .context_window.current_usage.cache_creation_input_tokens +
+         .context_window.current_usage.cache_read_input_tokens),
+        .context_window.context_window_size
+      ] | @tsv
+    else
+      empty
+    end
+  ' <<< "$input"
+}
+
+format_tokens_as_thousands() {
+  local tokens=$1
+  echo "$(( (tokens + 500) / 1000 ))k"
+}
+
+calculate_percentage() {
+  local current=$1
+  local total=$2
+  (( total <= 0 )) && { echo 0; return; }
+  echo $((current * 100 / total))
+}
+
 render_status_line() {
   local usage_json="$1"
   local current_timestamp="$2"
+  local stdin_input="$3"
 
   IFS=$'\t' read -r five_hour_utilization five_hour_reset_timestamp seven_day_utilization seven_day_reset_timestamp < <(extract_usage_data "$usage_json")
 
@@ -227,7 +261,17 @@ render_status_line() {
     seven_day_remaining=" $(format_seconds_as_days_hours "$seven_day_remaining_seconds")"
   fi
 
-  echo -e "${emoji} · ${color}${five_hour_usage}%${COLOR_RESET} (${time_remaining}) / ${seven_day_usage}% (${seven_day_remaining## })"
+  local context_display=""
+  local context_data=$(extract_context_data "$stdin_input")
+  if [[ -n "$context_data" ]]; then
+    IFS=$'\t' read -r current_tokens context_size <<< "$context_data"
+    local current_k=$(format_tokens_as_thousands "$current_tokens")
+    local max_k=$(format_tokens_as_thousands "$context_size")
+    local context_percent=$(calculate_percentage "$current_tokens" "$context_size")
+    context_display=" · 🧠 ${current_k}/${max_k} (${context_percent}%)"
+  fi
+
+  echo -e "${emoji} · ${color}${five_hour_usage}%${COLOR_RESET} (${time_remaining}) / ${seven_day_usage}% (${seven_day_remaining## })${context_display}"
 }
 
 # --- Main ---
@@ -239,4 +283,4 @@ if has_error_in_response "$usage_json"; then
   exit 0
 fi
 
-render_status_line "$usage_json" "$current_timestamp"
+render_status_line "$usage_json" "$current_timestamp" "$STDIN_INPUT"
