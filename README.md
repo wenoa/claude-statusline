@@ -5,7 +5,7 @@ Status line for Claude Code that displays quota usage in real time.
 ## Example
 
 ```
-🧊 · 27% (1h25m) / 16% (3d12h) · 🧠 45k/200k (22%)
+🧊 · 27% (1h 25m) / 16% (3d 12h) · 🧠 45k/200k (22%)
 ```
 
 ## Components
@@ -15,9 +15,9 @@ Status line for Claude Code that displays quota usage in real time.
 | `🧊` | Consumption pace emoji |
 | `·` | Separator |
 | `27%` | Usage percentage in 5-hour window (colored) |
-| `(1h25m)` | Time remaining until 5-hour window reset |
+| `(1h 25m)` | Time remaining until 5-hour window reset |
 | `16%` | Usage percentage in 7-day window |
-| `(3d12h)` | Time remaining until 7-day window reset |
+| `(3d 12h)` | Time remaining until 7-day window reset |
 | `🧠 45k/200k (22%)` | Context window usage (current/max tokens and percentage) |
 
 ## Pace Emojis

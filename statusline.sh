@@ -79,7 +79,7 @@ format_seconds_as_duration() {
   local seconds=$1
   if (( seconds <= 0 )); then echo "0m"
   elif (( seconds < 3600 )); then echo "$((seconds / 60))m"
-  else echo "$((seconds / 3600))h$((seconds % 3600 / 60))m"
+  else echo "$((seconds / 3600))h $((seconds % 3600 / 60))m"
   fi
 }
 
@@ -87,7 +87,7 @@ format_seconds_as_days_hours() {
   local seconds=$1
   if (( seconds <= 0 )); then echo "0h"
   elif (( seconds < 86400 )); then echo "$((seconds / 3600))h"
-  else echo "$((seconds / 86400))d$((seconds % 86400 / 3600))h"
+  else echo "$((seconds / 86400))d $((seconds % 86400 / 3600))h"
   fi
 }
 
