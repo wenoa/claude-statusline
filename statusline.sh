@@ -109,16 +109,20 @@ is_in_green_zone_by_remaining_time() {
   (( remaining_seconds < green_threshold_seconds ))
 }
 
+estimate_remaining_usage_seconds() {
+  local usage_percentage=$1
+  local elapsed_seconds=$2
+  (( usage_percentage <= 0 || elapsed_seconds <= 0 )) && { echo ""; return; }
+  (( usage_percentage >= 100 )) && { echo "0"; return; }
+  echo $(( (100 - usage_percentage) * elapsed_seconds / usage_percentage ))
+}
+
 get_pace_emoji() {
   local pace_deviation=$1
   local usage_percentage=$2
 
-  (( usage_percentage == 0 )) && { echo "🧊"; return; }
-
-  if (( pace_deviation < RELAXED_PACE_THRESHOLD )); then echo "🧊"
-  elif (( pace_deviation <= GOOD_PACE_THRESHOLD )); then echo "🌿"
-  elif (( pace_deviation <= FAST_PACE_THRESHOLD )); then echo "🔥"
-  else echo "💀"
+  if (( usage_percentage == 0 )) || (( pace_deviation <= GOOD_PACE_THRESHOLD )); then echo "🔋"
+  else echo "🪫"
   fi
 }
 
@@ -232,6 +236,74 @@ calculate_percentage() {
   echo $((current * 100 / total))
 }
 
+render_estimated_autonomy() {
+  local usage="$1"
+  local elapsed_seconds="$2"
+  local time_percentage="$3"
+
+  local pace_deviation=$(calculate_pace_deviation_percentage "$time_percentage" "$usage")
+  local emoji=$(get_pace_emoji "$pace_deviation" "$usage")
+
+  local estimate_display=""
+  local estimate_seconds=$(estimate_remaining_usage_seconds "$usage" "$elapsed_seconds")
+  if [[ -n "$estimate_seconds" ]]; then
+    estimate_display=" ~$(format_seconds_as_duration "$estimate_seconds")"
+  fi
+
+  echo -e "${emoji}${estimate_display}"
+}
+
+render_five_hour_usage() {
+  local utilization="$1"
+  local reset_timestamp="$2"
+  local current_timestamp="$3"
+
+  local reset_at=$(parse_reset_timestamp "$reset_timestamp")
+  local remaining_seconds=$(calculate_remaining_seconds "$reset_at" "$current_timestamp")
+
+  local elapsed_seconds=$((FIVE_HOUR_WINDOW_SECONDS - remaining_seconds))
+  (( elapsed_seconds < 0 )) && elapsed_seconds=0
+  local time_percentage=$((elapsed_seconds * 100 / FIVE_HOUR_WINDOW_SECONDS))
+
+  local usage=$(round_to_integer "$utilization")
+  local pace_deviation=$(calculate_pace_deviation_percentage "$time_percentage" "$usage")
+  local color=$(get_color_code "$pace_deviation" "$usage" "$remaining_seconds")
+  local time_remaining=$(format_seconds_as_duration "$remaining_seconds")
+
+  echo -e "${color}${usage}%${COLOR_RESET} ♻️ ${time_remaining}"
+}
+
+render_seven_day_usage() {
+  local utilization="$1"
+  local reset_timestamp="$2"
+  local current_timestamp="$3"
+
+  local usage=$(round_to_integer "$utilization")
+
+  local remaining=""
+  if [[ -n "$reset_timestamp" ]]; then
+    local reset_at=$(parse_reset_timestamp "$reset_timestamp")
+    local remaining_seconds=$(calculate_remaining_seconds "$reset_at" "$current_timestamp")
+    remaining=" $(format_seconds_as_days_hours "$remaining_seconds")"
+  fi
+
+  echo -e "${usage}% ♻️${remaining}"
+}
+
+render_context_window() {
+  local stdin_input="$1"
+
+  local context_data=$(extract_context_data "$stdin_input")
+  [[ -z "$context_data" ]] && return
+
+  IFS=$'\t' read -r current_tokens context_size <<< "$context_data"
+  local current_k=$(format_tokens_as_thousands "$current_tokens")
+  local max_k=$(format_tokens_as_thousands "$context_size")
+  local context_percent=$(calculate_percentage "$current_tokens" "$context_size")
+
+  echo -e " · 🧠 ${current_k}/${max_k} (${context_percent}%)"
+}
+
 render_status_line() {
   local usage_json="$1"
   local current_timestamp="$2"
@@ -239,39 +311,19 @@ render_status_line() {
 
   IFS=$'\t' read -r five_hour_utilization five_hour_reset_timestamp seven_day_utilization seven_day_reset_timestamp < <(extract_usage_data "$usage_json")
 
+  local five_hour_usage=$(round_to_integer "$five_hour_utilization")
   local reset_at=$(parse_reset_timestamp "$five_hour_reset_timestamp")
   local remaining_seconds=$(calculate_remaining_seconds "$reset_at" "$current_timestamp")
-
   local elapsed_seconds=$((FIVE_HOUR_WINDOW_SECONDS - remaining_seconds))
   (( elapsed_seconds < 0 )) && elapsed_seconds=0
   local time_percentage=$((elapsed_seconds * 100 / FIVE_HOUR_WINDOW_SECONDS))
 
-  local five_hour_usage=$(round_to_integer "$five_hour_utilization")
-  local seven_day_usage=$(round_to_integer "$seven_day_utilization")
-  local pace_deviation=$(calculate_pace_deviation_percentage "$time_percentage" "$five_hour_usage")
+  local pace=$(render_estimated_autonomy "$five_hour_usage" "$elapsed_seconds" "$time_percentage")
+  local five_hour=$(render_five_hour_usage "$five_hour_utilization" "$five_hour_reset_timestamp" "$current_timestamp")
+  local seven_day=$(render_seven_day_usage "$seven_day_utilization" "$seven_day_reset_timestamp" "$current_timestamp")
+  local context=$(render_context_window "$stdin_input")
 
-  local color=$(get_color_code "$pace_deviation" "$five_hour_usage" "$remaining_seconds")
-  local emoji=$(get_pace_emoji "$pace_deviation" "$five_hour_usage")
-  local time_remaining=$(format_seconds_as_duration "$remaining_seconds")
-
-  local seven_day_remaining=""
-  if [[ -n "$seven_day_reset_timestamp" ]]; then
-    local seven_day_reset_at=$(parse_reset_timestamp "$seven_day_reset_timestamp")
-    local seven_day_remaining_seconds=$(calculate_remaining_seconds "$seven_day_reset_at" "$current_timestamp")
-    seven_day_remaining=" $(format_seconds_as_days_hours "$seven_day_remaining_seconds")"
-  fi
-
-  local context_display=""
-  local context_data=$(extract_context_data "$stdin_input")
-  if [[ -n "$context_data" ]]; then
-    IFS=$'\t' read -r current_tokens context_size <<< "$context_data"
-    local current_k=$(format_tokens_as_thousands "$current_tokens")
-    local max_k=$(format_tokens_as_thousands "$context_size")
-    local context_percent=$(calculate_percentage "$current_tokens" "$context_size")
-    context_display=" · 🧠 ${current_k}/${max_k} (${context_percent}%)"
-  fi
-
-  echo -e "${emoji} · ${color}${five_hour_usage}%${COLOR_RESET} (${time_remaining}) / ${seven_day_usage}% (${seven_day_remaining## })${context_display}"
+  echo -e "${pace} · ${five_hour} · ${seven_day}${context}"
 }
 
 # --- Main ---

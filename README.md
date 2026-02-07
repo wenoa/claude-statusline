@@ -5,29 +5,27 @@ Status line for Claude Code that displays quota usage in real time.
 ## Example
 
 ```
-🧊 · 27% (1h 25m) / 16% (3d 12h) · 🧠 45k/200k (22%)
+🔋 ~6h 45m · 27% ♻️1h 25m · 16% ♻️3d 12h · 🧠 45k/200k (22%)
 ```
 
 ## Components
 
 | Component | Description |
 |-----------|-------------|
-| `🧊` | Consumption pace emoji |
-| `·` | Separator |
+| `🔋`/`🪫` | Battery indicator (on pace / too fast) |
+| `~6h 45m` | Estimated time until 100% usage at current pace |
 | `27%` | Usage percentage in 5-hour window (colored) |
-| `(1h 25m)` | Time remaining until 5-hour window reset |
+| `♻️1h 25m` | Time until 5-hour window reset |
 | `16%` | Usage percentage in 7-day window |
-| `(3d 12h)` | Time remaining until 7-day window reset |
+| `♻️3d 12h` | Time remaining until 7-day window reset |
 | `🧠 45k/200k (22%)` | Context window usage (current/max tokens and percentage) |
 
-## Pace Emojis
+## Battery Indicator
 
-| Emoji | Meaning | Pace |
-|-------|---------|------|
-| 🧊 | Very relaxed | More than 20% below max pace |
-| 🌿 | Good | Between 0% and 20% below |
-| 🔥 | Fast | Between 0% and 30% above |
-| 💀 | Critical | More than 30% above |
+| Emoji | Meaning |
+|-------|---------|
+| 🔋 | On pace or slower — you'll make it |
+| 🪫 | Faster than sustainable — may run out |
 
 ## Percentage Colors
 
