@@ -5,7 +5,7 @@ STDIN_INPUT=$(cat)
 
 FIVE_HOUR_WINDOW_SECONDS=18000
 CACHE_FILE="/tmp/claude-usage-cache.json"
-CACHE_TIME_TO_LIVE_SECONDS=60
+CACHE_TIME_TO_LIVE_SECONDS=30
 
 # Usage and pace thresholds (percentages)
 LOW_USAGE_THRESHOLD=20
