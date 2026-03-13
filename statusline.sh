@@ -171,11 +171,7 @@ get_cached_or_fetch() {
   local response=$(fetch_usage "$access_token")
 
   if [[ -z "$response" ]] || has_error_in_response "$response"; then
-    if [[ -f "$CACHE_FILE" ]]; then
-      cat "$CACHE_FILE"
-    else
-      echo '{"error": "api_error"}'
-    fi
+    echo '{"error": "rate_limited"}'
     return
   fi
 
@@ -199,10 +195,14 @@ has_error_in_response() {
 
 render_error() {
   local error_type="$1"
+  local context=$(render_context_window "$STDIN_INPUT")
+
   if [[ "$error_type" == "no_token" ]]; then
-    echo -e "${COLOR_GRAY}⚠️ No session${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}⚠️ No session${COLOR_RESET}${context}"
+  elif [[ "$error_type" == "rate_limited" ]]; then
+    echo -e "${COLOR_GRAY}⚠️ API rate limited${COLOR_RESET}${context}"
   else
-    echo -e "${COLOR_GRAY}⚠️ Error API${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}⚠️ Error API${COLOR_RESET}${context}"
   fi
 }
 
