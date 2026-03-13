@@ -62,10 +62,10 @@ The script has configurable constants at the beginning of the file:
 | Cache TTL | 60s | Seconds between API calls |
 | Cache file | `/tmp/claude-usage-cache.json` | Path to cache file |
 | Low usage threshold | 20% | Below this, always show green |
-| Relaxed pace | -20% | Below this deviation, show 🧊 |
-| Good pace | 0% | At or below, show 🌿 and green |
-| Fast pace | 30% | At or below, show 🔥 and yellow |
-| Critical pace | 60% | Above, show 💀 and orange/red |
+| Relaxed pace | -20% | Below this deviation, relaxed pace |
+| Good pace | 0% | At or below, show 🔋 and green |
+| Fast pace | 30% | At or below, show 🪫 and yellow |
+| Critical pace | 60% | Above, show 🪫 and orange/red |
 | Green zone | 7% | Last % of window shows green regardless |
 
 ## Dependencies
@@ -94,6 +94,16 @@ deviation = (usage% - time%) / time% × 100
 | 20% (1h) | 40% | +100% | Using twice as fast |
 
 A positive deviation means you're consuming faster than sustainable. A negative deviation means you have room to spare.
+
+## Error States
+
+When the script can't fetch usage data, it shows a gray message with the context window info still visible:
+
+| Error | Message | Cause |
+|-------|---------|-------|
+| No session | `⚠️ No session` | No OAuth token found in Keychain |
+| Rate limited | `⚠️ API rate limited` | API returned an error or rate limit |
+| Other | `⚠️ Error API` | Unexpected API error |
 
 ## How It Works
 
