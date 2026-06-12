@@ -24,8 +24,13 @@ COLOR_GRAY='\033[90m'
 COLOR_RESET='\033[0m'
 
 get_token() {
-  security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | \
-    jq -r '.claudeAiOauth.accessToken // empty'
+  local credentials
+  if [[ "$(uname)" == "Darwin" ]]; then
+    credentials=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+  else
+    credentials=$(cat "$HOME/.claude/.credentials.json" 2>/dev/null)
+  fi
+  jq -r '.claudeAiOauth.accessToken // empty' <<< "$credentials"
 }
 
 fetch_usage() {
@@ -46,7 +51,11 @@ normalize_iso_timestamp() {
 }
 
 convert_to_timestamp() {
-  date -u -j -f "%Y-%m-%dT%H:%M:%S" "$1" "+%s" 2>/dev/null
+  if [[ "$(uname)" == "Darwin" ]]; then
+    date -u -j -f "%Y-%m-%dT%H:%M:%S" "$1" "+%s" 2>/dev/null
+  else
+    date -u -d "$1" "+%s" 2>/dev/null
+  fi
 }
 
 # Rounds to nearest minute (up if seconds >= 30)
@@ -92,7 +101,7 @@ format_seconds_as_days_hours() {
 }
 
 round_to_integer() {
-  printf "%.0f" "$1"
+  LC_NUMERIC=C printf "%.0f" "$1"
 }
 
 calculate_pace_deviation_percentage() {
