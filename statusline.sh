@@ -24,12 +24,13 @@ COLOR_GRAY='\033[90m'
 COLOR_RESET='\033[0m'
 
 get_token() {
+  local credentials
   if [[ "$(uname)" == "Darwin" ]]; then
-    security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | \
-      jq -r '.claudeAiOauth.accessToken // empty'
+    credentials=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
   else
-    jq -r '.claudeAiOauth.accessToken // empty' "$HOME/.claude/.credentials.json" 2>/dev/null
+    credentials=$(cat "$HOME/.claude/.credentials.json" 2>/dev/null)
   fi
+  jq -r '.claudeAiOauth.accessToken // empty' <<< "$credentials"
 }
 
 fetch_usage() {
