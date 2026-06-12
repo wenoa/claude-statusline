@@ -19,6 +19,22 @@ Status line for Claude Code that displays quota usage in real time.
 | `16%` | Usage percentage in 7-day window |
 | `♻️3d 12h` | Time remaining until 7-day window reset |
 | `🧠 45k/200k (22%)` | Context window usage (current/max tokens and percentage) |
+| `⬆️ update available` | Local clone is behind its tracked branch |
+| `✅ updated` | Auto-update applied the latest version |
+
+## Update Check
+
+If the script is inside a git repository, it fetches the remote in the
+background (at most once a day) and shows `⬆️ update available` when your branch
+is behind.
+It only fetches — pulling is up to you (`git pull`). Skipped without a git
+repository or an upstream branch.
+
+To update automatically, set `CLAUDE_STATUSLINE_AUTO_UPDATE=1` in your shell
+config. Once a fetch has revealed a new version, it resets the clone to the
+remote (`git reset --hard @{u}`, instant) and shows `✅ updated`. This discards
+any local changes to the clone — only enable it if you use the repository purely
+to run the status line.
 
 ## Battery Indicator
 

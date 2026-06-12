@@ -11,6 +11,13 @@ CACHE_TIME_TO_LIVE_SECONDS=60
 # (comma-separated): pace, five_hour, seven_day, context
 DEFAULT_SEGMENTS="pace,five_hour,seven_day,context"
 
+# Self-update check: when inside a git repository, periodically fetch the
+# remote in the background and flag when local is behind the tracked branch.
+# Cache lives in a gitignored .cache/ inside the repository.
+CACHE_DIRECTORY_NAME=".cache"
+UPDATE_CHECK_FILE_NAME="update-check"
+UPDATE_CHECK_TTL_SECONDS=86400
+
 # Usage and pace thresholds (percentages)
 LOW_USAGE_THRESHOLD=20
 RELAXED_PACE_THRESHOLD=-20
@@ -367,13 +374,86 @@ render_status_line() {
   join_segments "${segments[@]}"
 }
 
+resolve_script_directory() {
+  local source="${BASH_SOURCE[0]}"
+  while [[ -L "$source" ]]; do
+    local link_dir=$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)
+    source=$(readlink "$source")
+    [[ "$source" != /* ]] && source="$link_dir/$source"
+  done
+  cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd
+}
+
+is_git_repository() {
+  git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+fetch_remote_in_background() {
+  local repository_directory="$1"
+  local current_timestamp="$2"
+
+  local cache_directory="$repository_directory/$CACHE_DIRECTORY_NAME"
+  local update_check_file="$cache_directory/$UPDATE_CHECK_FILE_NAME"
+
+  local last_check=0
+  [[ -f "$update_check_file" ]] && last_check=$(cat "$update_check_file" 2>/dev/null)
+  (( current_timestamp - last_check < UPDATE_CHECK_TTL_SECONDS )) && return
+
+  mkdir -p "$cache_directory" 2>/dev/null
+  echo "$current_timestamp" > "$update_check_file"
+  ( GIT_TERMINAL_PROMPT=0 git -C "$repository_directory" fetch --quiet >/dev/null 2>&1 & )
+}
+
+has_pending_update() {
+  local commits_behind=$(git -C "$1" rev-list --count HEAD..@{u} 2>/dev/null)
+  [[ -n "$commits_behind" && "$commits_behind" -ne 0 ]]
+}
+
+auto_update_enabled() {
+  [[ "$CLAUDE_STATUSLINE_AUTO_UPDATE" == "1" || "$CLAUDE_STATUSLINE_AUTO_UPDATE" == "true" ]]
+}
+
+# Forces the local clone to match the remote, discarding any local changes.
+apply_update() {
+  git -C "$1" reset --hard @{u} >/dev/null 2>&1
+}
+
+render_update_available_indicator() {
+  echo -e "${COLOR_YELLOW}⬆️ update available${COLOR_RESET}"
+}
+
+render_updated_indicator() {
+  echo -e "${COLOR_GREEN}✅ updated${COLOR_RESET}"
+}
+
+resolve_update_indicator() {
+  local repository_directory="$1"
+
+  has_pending_update "$repository_directory" || return
+
+  if auto_update_enabled && apply_update "$repository_directory"; then
+    render_updated_indicator
+  else
+    render_update_available_indicator
+  fi
+}
+
 # --- Main ---
 current_timestamp=$(date "+%s")
 usage_json=$(get_cached_or_fetch "$current_timestamp")
 
-if has_error_in_response "$usage_json"; then
-  render_error "$(echo "$usage_json" | jq -r '.error')"
-  exit 0
+script_directory=$(resolve_script_directory)
+update_indicator=""
+if is_git_repository "$script_directory"; then
+  fetch_remote_in_background "$script_directory" "$current_timestamp"
+  update_indicator=$(resolve_update_indicator "$script_directory")
 fi
 
-render_status_line "$usage_json" "$current_timestamp" "$STDIN_INPUT"
+if has_error_in_response "$usage_json"; then
+  status_line=$(render_error "$(echo "$usage_json" | jq -r '.error')")
+else
+  status_line=$(render_status_line "$usage_json" "$current_timestamp" "$STDIN_INPUT")
+fi
+
+[[ -n "$update_indicator" ]] && status_line="${status_line} · ${update_indicator}"
+echo "$status_line"
