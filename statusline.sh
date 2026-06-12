@@ -308,7 +308,7 @@ render_context_window() {
   local stdin_input="$1"
 
   local context_data=$(extract_context_data "$stdin_input")
-  [[ -z "$context_data" ]] && return
+  [[ -z "$context_data" ]] && { echo -e "${COLOR_GRAY}🧠 no context yet${COLOR_RESET}"; return; }
 
   IFS=$'\t' read -r current_tokens context_size <<< "$context_data"
   local current_k=$(format_tokens_as_thousands "$current_tokens")
