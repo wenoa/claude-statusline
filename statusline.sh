@@ -3,6 +3,8 @@
 # Read JSON input from stdin (Claude Code passes context info)
 STDIN_INPUT=$(cat)
 
+[[ "$(uname)" == "Darwin" ]] && IS_MACOS=true || IS_MACOS=false
+
 FIVE_HOUR_WINDOW_SECONDS=18000
 CACHE_FILE="/tmp/claude-usage-cache.json"
 CACHE_TIME_TO_LIVE_SECONDS=60
@@ -20,7 +22,6 @@ UPDATE_CHECK_TTL_SECONDS=86400
 
 # Usage and pace thresholds (percentages)
 LOW_USAGE_THRESHOLD=20
-RELAXED_PACE_THRESHOLD=-20
 GOOD_PACE_THRESHOLD=0
 FAST_PACE_THRESHOLD=30
 CRITICAL_PACE_THRESHOLD=60
@@ -36,7 +37,7 @@ COLOR_RESET='\033[0m'
 
 get_token() {
   local credentials
-  if [[ "$(uname)" == "Darwin" ]]; then
+  if $IS_MACOS; then
     credentials=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
   else
     credentials=$(cat "$HOME/.claude/.credentials.json" 2>/dev/null)
@@ -62,7 +63,7 @@ normalize_iso_timestamp() {
 }
 
 convert_to_timestamp() {
-  if [[ "$(uname)" == "Darwin" ]]; then
+  if $IS_MACOS; then
     date -u -j -f "%Y-%m-%dT%H:%M:%S" "$1" "+%s" 2>/dev/null
   else
     date -u -d "$1" "+%s" 2>/dev/null
@@ -214,17 +215,17 @@ has_error_in_response() {
 }
 
 render_error() {
-  local error_type="$1"
+  local message
+  case "$1" in
+    no_token)     message="⚠️ No session" ;;
+    rate_limited) message="⚠️ API rate limited" ;;
+    *)            message="⚠️ Error API" ;;
+  esac
+
   local context=$(render_context_window "$STDIN_INPUT")
   [[ -n "$context" ]] && context=" · ${context}"
 
-  if [[ "$error_type" == "no_token" ]]; then
-    echo -e "${COLOR_GRAY}⚠️ No session${COLOR_RESET}${context}"
-  elif [[ "$error_type" == "rate_limited" ]]; then
-    echo -e "${COLOR_GRAY}⚠️ API rate limited${COLOR_RESET}${context}"
-  else
-    echo -e "${COLOR_GRAY}⚠️ Error API${COLOR_RESET}${context}"
-  fi
+  echo -e "${COLOR_GRAY}${message}${COLOR_RESET}${context}"
 }
 
 extract_context_data() {
