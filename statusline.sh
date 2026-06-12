@@ -7,6 +7,10 @@ FIVE_HOUR_WINDOW_SECONDS=18000
 CACHE_FILE="/tmp/claude-usage-cache.json"
 CACHE_TIME_TO_LIVE_SECONDS=60
 
+# Segments to display, in order. Override with CLAUDE_STATUSLINE_SEGMENTS
+# (comma-separated): pace, five_hour, seven_day, context
+DEFAULT_SEGMENTS="pace,five_hour,seven_day,context"
+
 # Usage and pace thresholds (percentages)
 LOW_USAGE_THRESHOLD=20
 RELAXED_PACE_THRESHOLD=-20
@@ -205,6 +209,7 @@ has_error_in_response() {
 render_error() {
   local error_type="$1"
   local context=$(render_context_window "$STDIN_INPUT")
+  [[ -n "$context" ]] && context=" · ${context}"
 
   if [[ "$error_type" == "no_token" ]]; then
     echo -e "${COLOR_GRAY}⚠️ No session${COLOR_RESET}${context}"
@@ -310,7 +315,28 @@ render_context_window() {
   local max_k=$(format_tokens_as_thousands "$context_size")
   local context_percent=$(calculate_percentage "$current_tokens" "$context_size")
 
-  echo -e " · 🧠 ${current_k}/${max_k} (${context_percent}%)"
+  echo -e "🧠 ${current_k}/${max_k} (${context_percent}%)"
+}
+
+render_segment() {
+  local name="$1"
+  case "$name" in
+    pace)      render_estimated_autonomy "$five_hour_usage" "$elapsed_seconds" "$time_percentage" ;;
+    five_hour) render_five_hour_usage "$five_hour_utilization" "$five_hour_reset_timestamp" "$current_timestamp" ;;
+    seven_day) render_seven_day_usage "$seven_day_utilization" "$seven_day_reset_timestamp" "$current_timestamp" ;;
+    context)   render_context_window "$stdin_input" ;;
+  esac
+}
+
+join_segments() {
+  local result=""
+  local segment
+  for segment in "$@"; do
+    if [[ -z "$result" ]]; then result="$segment"
+    else result="${result} · ${segment}"
+    fi
+  done
+  echo "$result"
 }
 
 render_status_line() {
@@ -327,12 +353,18 @@ render_status_line() {
   (( elapsed_seconds < 0 )) && elapsed_seconds=0
   local time_percentage=$((elapsed_seconds * 100 / FIVE_HOUR_WINDOW_SECONDS))
 
-  local pace=$(render_estimated_autonomy "$five_hour_usage" "$elapsed_seconds" "$time_percentage")
-  local five_hour=$(render_five_hour_usage "$five_hour_utilization" "$five_hour_reset_timestamp" "$current_timestamp")
-  local seven_day=$(render_seven_day_usage "$seven_day_utilization" "$seven_day_reset_timestamp" "$current_timestamp")
-  local context=$(render_context_window "$stdin_input")
+  local segment_names
+  IFS=',' read -ra segment_names <<< "${CLAUDE_STATUSLINE_SEGMENTS:-$DEFAULT_SEGMENTS}"
 
-  echo -e "${pace} · ${five_hour} · ${seven_day}${context}"
+  local segments=()
+  local name rendered
+  for name in "${segment_names[@]}"; do
+    name="${name// /}"
+    rendered=$(render_segment "$name")
+    [[ -n "$rendered" ]] && segments+=("$rendered")
+  done
+
+  join_segments "${segments[@]}"
 }
 
 # --- Main ---

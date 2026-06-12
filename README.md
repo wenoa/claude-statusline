@@ -53,6 +53,36 @@ The 5-hour percentage is colored based on pace:
    }
    ```
 
+## Choosing Segments
+
+By default the status line shows all four segments. You can choose which ones
+to display, and in what order, with the `CLAUDE_STATUSLINE_SEGMENTS` environment
+variable (comma-separated). Set it in your shell config (`~/.zshrc`,
+`~/.bashrc`, `~/.config/fish/config.fish`, etc.).
+
+| Segment | Output | Description |
+|---------|--------|-------------|
+| `pace` | `🔋 ~6h 45m` | Battery indicator + estimated autonomy |
+| `five_hour` | `27% ♻️1h 25m` | 5-hour window usage and reset |
+| `seven_day` | `16% ♻️3d 12h` | 7-day window usage and reset |
+| `context` | `🧠 45k/200k (22%)` | Context window usage |
+
+```bash
+# Everything (default)
+export CLAUDE_STATUSLINE_SEGMENTS="pace,five_hour,seven_day,context"
+
+# Just the current 5-hour usage
+export CLAUDE_STATUSLINE_SEGMENTS="five_hour"
+
+# Pace plus what's consumed so far
+export CLAUDE_STATUSLINE_SEGMENTS="pace,five_hour"
+
+# Just the context window
+export CLAUDE_STATUSLINE_SEGMENTS="context"
+```
+
+Unknown or empty segments are ignored.
+
 ## Configuration
 
 The script has configurable constants at the beginning of the file:
