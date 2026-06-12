@@ -6,17 +6,19 @@ STDIN_INPUT=$(cat)
 [[ "$(uname)" == "Darwin" ]] && IS_MACOS=true || IS_MACOS=false
 
 FIVE_HOUR_WINDOW_SECONDS=18000
-CACHE_FILE="/tmp/claude-usage-cache.json"
 CACHE_TIME_TO_LIVE_SECONDS=60
 
 # Segments to display, in order. Override with CLAUDE_STATUSLINE_SEGMENTS
 # (comma-separated): pace, five_hour, seven_day, context
 DEFAULT_SEGMENTS="pace,five_hour,seven_day,context"
 
+# Caches live in a gitignored .cache/ inside the repository, falling back to
+# /tmp when the script isn't in a git repository. CACHE_FILE is set in Main.
+CACHE_DIRECTORY_NAME=".cache"
+USAGE_CACHE_FILE_NAME="usage.json"
+
 # Self-update check: when inside a git repository, periodically fetch the
 # remote in the background and flag when local is behind the tracked branch.
-# Cache lives in a gitignored .cache/ inside the repository.
-CACHE_DIRECTORY_NAME=".cache"
 UPDATE_CHECK_FILE_NAME="update-check"
 UPDATE_CHECK_TTL_SECONDS=86400
 
@@ -172,6 +174,7 @@ is_cache_valid() {
 save_to_cache() {
   local response=$1
   local timestamp=$2
+  mkdir -p "$(dirname "$CACHE_FILE")" 2>/dev/null
   echo "$response" | jq --arg ts "$timestamp" '. + {cached_at: ($ts | tonumber)}' > "$CACHE_FILE"
 }
 
@@ -441,14 +444,18 @@ resolve_update_indicator() {
 
 # --- Main ---
 current_timestamp=$(date "+%s")
-usage_json=$(get_cached_or_fetch "$current_timestamp")
-
 script_directory=$(resolve_script_directory)
+
 update_indicator=""
 if is_git_repository "$script_directory"; then
+  CACHE_FILE="$script_directory/$CACHE_DIRECTORY_NAME/$USAGE_CACHE_FILE_NAME"
   fetch_remote_in_background "$script_directory" "$current_timestamp"
   update_indicator=$(resolve_update_indicator "$script_directory")
+else
+  CACHE_FILE="/tmp/claude-usage-cache.json"
 fi
+
+usage_json=$(get_cached_or_fetch "$current_timestamp")
 
 if has_error_in_response "$usage_json"; then
   status_line=$(render_error "$(echo "$usage_json" | jq -r '.error')")

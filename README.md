@@ -106,7 +106,7 @@ The script has configurable constants at the beginning of the file:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Cache TTL | 60s | Seconds between API calls |
-| Cache file | `/tmp/claude-usage-cache.json` | Path to cache file |
+| Cache location | `.cache/` in the repo (else `/tmp`) | Usage and update-check caches |
 | Low usage threshold | 20% | Below this, always show green |
 | Relaxed pace | -20% | Below this deviation, relaxed pace |
 | Good pace | 0% | At or below, show 🔋 and green |
