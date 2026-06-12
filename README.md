@@ -22,20 +22,6 @@ Status line for Claude Code that displays quota usage in real time.
 | `⬆️ update available` | Local clone is behind its tracked branch |
 | `✅ updated` | Auto-update applied the latest version |
 
-## Update Check
-
-If the script is inside a git repository, it fetches the remote in the
-background (at most once a day) and shows `⬆️ update available` when your branch
-is behind.
-It only fetches — pulling is up to you (`git pull`). Skipped without a git
-repository or an upstream branch.
-
-To update automatically, set `CLAUDE_STATUSLINE_AUTO_UPDATE=1` in your shell
-config. Once a fetch has revealed a new version, it resets the clone to the
-remote (`git reset --hard @{u}`, instant) and shows `✅ updated`. This discards
-any local changes to the clone — only enable it if you use the repository purely
-to run the status line.
-
 ## Battery Indicator
 
 | Emoji | Meaning |
@@ -51,6 +37,33 @@ The 5-hour percentage is colored based on pace:
 - **Yellow**: Up to 30% faster
 - **Orange**: Between 30% and 60% faster
 - **Red**: More than 60% faster
+
+## Understanding Pace
+
+The script compares your actual usage against the "ideal" uniform consumption rate. If you have a 5-hour window and consume evenly, you'd use 20% per hour.
+
+**Pace deviation** measures how far ahead or behind you are:
+
+```
+deviation = (usage% - time%) / time% × 100
+```
+
+### Examples
+
+| Time elapsed | Usage | Deviation | Meaning |
+|--------------|-------|-----------|---------|
+| 50% (2.5h) | 50% | 0% | Perfect pace |
+| 50% (2.5h) | 75% | +50% | Using 50% faster than ideal |
+| 50% (2.5h) | 25% | -50% | Using 50% slower than ideal |
+| 20% (1h) | 40% | +100% | Using twice as fast |
+
+A positive deviation means you're consuming faster than sustainable. A negative deviation means you have room to spare.
+
+## Dependencies
+
+- `jq` - For JSON parsing
+- `curl` - For API calls
+- `security` - To get Claude Code token (included in macOS)
 
 ## Installation
 
@@ -99,47 +112,19 @@ export CLAUDE_STATUSLINE_SEGMENTS="context"
 
 Unknown or empty segments are ignored.
 
-## Configuration
+## Update Check
 
-The script has configurable constants at the beginning of the file:
+If the script is inside a git repository, it fetches the remote in the
+background (at most once a day) and shows `⬆️ update available` when your branch
+is behind.
+It only fetches — pulling is up to you (`git pull`). Skipped without a git
+repository or an upstream branch.
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Cache TTL | 60s | Seconds between API calls |
-| Cache location | `.cache/` in the repo (else `/tmp`) | Usage and update-check caches |
-| Low usage threshold | 20% | Below this, always show green |
-| Relaxed pace | -20% | Below this deviation, relaxed pace |
-| Good pace | 0% | At or below, show 🔋 and green |
-| Fast pace | 30% | At or below, show 🪫 and yellow |
-| Critical pace | 60% | Above, show 🪫 and orange/red |
-| Green zone | 7% | Last % of window shows green regardless |
-
-## Dependencies
-
-- `jq` - For JSON parsing
-- `curl` - For API calls
-- `security` - To get Claude Code token (included in macOS)
-
-## Understanding Pace
-
-The script compares your actual usage against the "ideal" uniform consumption rate. If you have a 5-hour window and consume evenly, you'd use 20% per hour.
-
-**Pace deviation** measures how far ahead or behind you are:
-
-```
-deviation = (usage% - time%) / time% × 100
-```
-
-### Examples
-
-| Time elapsed | Usage | Deviation | Meaning |
-|--------------|-------|-----------|---------|
-| 50% (2.5h) | 50% | 0% | Perfect pace |
-| 50% (2.5h) | 75% | +50% | Using 50% faster than ideal |
-| 50% (2.5h) | 25% | -50% | Using 50% slower than ideal |
-| 20% (1h) | 40% | +100% | Using twice as fast |
-
-A positive deviation means you're consuming faster than sustainable. A negative deviation means you have room to spare.
+To update automatically, set `CLAUDE_STATUSLINE_AUTO_UPDATE=1` in your shell
+config. Once a fetch has revealed a new version, it resets the clone to the
+remote (`git reset --hard @{u}`, instant) and shows `✅ updated`. This discards
+any local changes to the clone — only enable it if you use the repository purely
+to run the status line.
 
 ## Error States
 
