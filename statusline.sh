@@ -8,9 +8,8 @@ STDIN_INPUT=$(cat)
 FIVE_HOUR_WINDOW_SECONDS=18000
 CACHE_TIME_TO_LIVE_SECONDS=60
 
-# Segments to display, in order. Override with CLAUDE_STATUSLINE_SEGMENTS
-# (comma-separated): pace, five_hour, seven_day, context
-DEFAULT_SEGMENTS="pace,five_hour,seven_day,context"
+# Segments to display, in order. Override with CLAUDE_STATUSLINE_SEGMENTS.
+DEFAULT_SEGMENTS="pace,five_hour,seven_day,context,directory"
 
 # Caches live in a gitignored .cache/ inside the repository, falling back to
 # /tmp when the script isn't in a git repository. CACHE_FILE is set in Main.
@@ -225,10 +224,13 @@ render_error() {
     *)            message="⚠️ Error API" ;;
   esac
 
-  local context=$(render_context_window "$STDIN_INPUT")
-  [[ -n "$context" ]] && context=" · ${context}"
+  local segments=("${COLOR_GRAY}${message}${COLOR_RESET}")
+  local rendered
+  for rendered in "$(render_context_window "$STDIN_INPUT")" "$(render_working_directory "$STDIN_INPUT")"; do
+    [[ -n "$rendered" ]] && segments+=("$rendered")
+  done
 
-  echo -e "${COLOR_GRAY}${message}${COLOR_RESET}${context}"
+  echo -e "$(join_segments "${segments[@]}")"
 }
 
 extract_context_data() {
@@ -329,6 +331,47 @@ render_context_window() {
   echo -e "🧠 ${current_k}/${max_k} (${context_percent}%)"
 }
 
+extract_current_directory() {
+  local input="$1"
+  [[ -z "$input" ]] && return
+
+  jq -r '.workspace.current_dir // .cwd // empty' <<< "$input"
+}
+
+abbreviate_home_directory() {
+  local path="$1"
+  [[ "$path" == "$HOME" || "$path" == "$HOME"/* ]] && path="~${path#"$HOME"}"
+  echo "$path"
+}
+
+# Reduces every directory but the last one to its initial: ~/one/two/dir -> ~/o/t/dir
+abbreviate_path_components() {
+  local path="$1"
+
+  local -a components
+  IFS='/' read -ra components <<< "$path"
+  local last_index=$(( ${#components[@]} - 1 ))
+
+  local result="" index component
+  for index in "${!components[@]}"; do
+    component="${components[index]}"
+    (( index < last_index )) && component="${component:0:1}"
+    if (( index == 0 )); then result="$component"
+    else result="${result}/${component}"
+    fi
+  done
+  echo "$result"
+}
+
+render_working_directory() {
+  local stdin_input="$1"
+
+  local directory=$(extract_current_directory "$stdin_input")
+  [[ -z "$directory" ]] && return
+
+  echo -e "📁 $(abbreviate_path_components "$(abbreviate_home_directory "$directory")")"
+}
+
 render_segment() {
   local name="$1"
   case "$name" in
@@ -336,6 +379,7 @@ render_segment() {
     five_hour) render_five_hour_usage "$five_hour_utilization" "$five_hour_reset_timestamp" "$current_timestamp" ;;
     seven_day) render_seven_day_usage "$seven_day_utilization" "$seven_day_reset_timestamp" "$current_timestamp" ;;
     context)   render_context_window "$stdin_input" ;;
+    directory) render_working_directory "$stdin_input" ;;
   esac
 }
 

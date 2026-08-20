@@ -5,7 +5,7 @@ Status line for Claude Code that displays quota usage in real time.
 ## Example
 
 ```
-🔋 ~6h 45m · 27% ♻️1h 25m · 16% ♻️3d 12h · 🧠 45k/200k (22%)
+🔋 ~6h 45m · 27% ♻️1h 25m · 16% ♻️3d 12h · 🧠 45k/200k (22%) · 📁 ~/P/W/Claude-Statusline
 ```
 
 ## Components
@@ -19,6 +19,7 @@ Status line for Claude Code that displays quota usage in real time.
 | `16%` | Usage percentage in 7-day window |
 | `♻️3d 12h` | Time remaining until 7-day window reset |
 | `🧠 45k/200k (22%)` | Context window usage (current/max tokens and percentage) |
+| `📁 ~/P/W/Claude-Statusline` | Current working directory, with parent directories abbreviated |
 | `⬆️ update available` | Local clone is behind its tracked branch |
 | `✅ updated` | Auto-update applied the latest version |
 
@@ -84,7 +85,7 @@ A positive deviation means you're consuming faster than sustainable. A negative 
 
 ## Choosing Segments
 
-By default the status line shows all four segments. You can choose which ones
+By default the status line shows all five segments. You can choose which ones
 to display, and in what order, with the `CLAUDE_STATUSLINE_SEGMENTS` environment
 variable (comma-separated). Set it in your shell config (`~/.zshrc`,
 `~/.bashrc`, `~/.config/fish/config.fish`, etc.).
@@ -95,10 +96,11 @@ variable (comma-separated). Set it in your shell config (`~/.zshrc`,
 | `five_hour` | `27% ♻️1h 25m` | 5-hour window usage and reset |
 | `seven_day` | `16% ♻️3d 12h` | 7-day window usage and reset |
 | `context` | `🧠 45k/200k (22%)` | Context window usage |
+| `directory` | `📁 ~/P/W/Claude-Statusline` | Current working directory |
 
 ```bash
 # Everything (default)
-export CLAUDE_STATUSLINE_SEGMENTS="pace,five_hour,seven_day,context"
+export CLAUDE_STATUSLINE_SEGMENTS="pace,five_hour,seven_day,context,directory"
 
 # Just the current 5-hour usage
 export CLAUDE_STATUSLINE_SEGMENTS="five_hour"
@@ -128,7 +130,7 @@ to run the status line.
 
 ## Error States
 
-When the script can't fetch usage data, it shows a gray message with the context window info still visible:
+When the script can't fetch usage data, it shows a gray message with the context window and directory info still visible:
 
 | Error | Message | Cause |
 |-------|---------|-------|
